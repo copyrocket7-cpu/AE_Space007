@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#000005">
+<meta name="description" content="Physics-accurate stellar analysis engine. Compute luminosity, flux, gravitational redshift, and evolutionary timelines.">
+<title>Stellar Observatory — Star Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════
+   TOKENS
+══════════════════════════════════════════ */
+:root {
+  --black:   #000005;
+  --deep:    #06080f;
+  --panel:   rgba(8,11,22,0.88);
+  --surface: rgba(14,18,32,0.7);
+  --border:  rgba(80,120,255,0.13);
+  --border2: rgba(80,120,255,0.30);
+  --cyan:    #00d4e8;
+  --cyan2:   #00b8d9;
+  --gold:    #f0a830;
+  --red:     #ff4455;
+  --green:   #00e888;
+  --muted:   #3a4468;
+  --text:    #b8c8e8;
+  --dim:     #566080;
+  --white:   #eef2ff;
+  --mono:    'Space Mono', monospace;
+  --ui:      'Outfit', sans-serif;
+  --radius:  3px;
+}
+
+/* ══════════════════════════════════════════
+   RESET & BASE
+══════════════════════════════════════════ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--ui);
+  background: var(--black);
+  color: var(--text);
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+img { display:block; max-width:100%; }
+button { font-family: var(--ui); }
+a { color: inherit; }
+
+/* ══════════════════════════════════════════
+   STARFIELD
+══════════════════════════════════════════ */
+#starfield {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════
+   PAGE WRAPPER
+══════════════════════════════════════════ */
+.page { position: relative; z-index: 1; }
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 2.5rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,5,0.75);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  transition: padding 0.4s;
+}
+nav.compact { padding: 0.75rem 2.5rem; }
+
+.nav-logo {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  color: var(--white);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.nav-logo-dot {
+  width: 7px; height: 7px;
+  background: var(--cyan);
+  border-radius: 50%;
+  animation: blink 3s ease infinite;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+}
+.nav-links a {
+  color: var(--dim);
+  text-decoration: none;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.25s;
+  font-family: var(--mono);
+}
+.nav-links a:hover { color: var(--cyan); }
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.nav-status {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.nav-status::before {
+  content: '';
+  width: 5px; height: 5px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: blink 2.5s ease infinite;
+}
+
+/* Hamburger */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  padding: 4px;
+  background: none;
+  border: none;
+}
+.hamburger span {
+  display: block;
+  width: 22px; height: 1.5px;
+  background: var(--text);
+  transition: all 0.3s;
+  transform-origin: center;
+}
+.hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+/* Mobile nav drawer */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,5,0.97);
+  z-index: 190;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+}
+.mobile-nav.open { display: flex; }
+.mobile-nav a {
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.mobile-nav a:hover { color: var(--cyan); }
+
+/* ══════════════════════════════════════════
+   HERO
+══════════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 7rem 1.5rem 5rem;
+  position: relative;
+}
+
+.hero-badge {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  border: 1px solid rgba(0,212,232,0.2);
+  padding: 0.35rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 2.5rem;
+  display: inline-block;
+  animation: fadeUp 0.9s ease 0.2s both;
+}
+
+.hero-title {
+  font-family: var(--ui);
+  font-size: clamp(2.2rem, 5.5vw, 4.2rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  color: var(--white);
+  margin-bottom: 0.6rem;
+  animation: fadeUp 0.9s ease 0.35s both;
+}
+.hero-title-accent {
+  color: var(--cyan);
+  font-weight: 300;
+}
+.hero-subtitle-line {
+  font-family: var(--mono);
+  font-size: clamp(0.65rem, 1.5vw, 0.78rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 2rem;
+  animation: fadeUp 0.9s ease 0.5s both;
+}
+.hero-desc {
+  font-size: clamp(0.82rem, 2vw, 0.95rem);
+  color: var(--dim);
+  line-height: 1.85;
+  max-width: 480px;
+  margin: 0 auto 3rem;
+  animation: fadeUp 0.9s ease 0.65s both;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  animation: fadeUp 0.9s ease 0.8s both;
+}
+
+/* ══════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.8rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  border: none;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--cyan);
+  color: var(--black);
+  font-weight: 700;
+}
+.btn-primary:hover {
+  background: var(--white);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(0,212,232,0.28);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  transform: translateY(-2px);
+}
+.btn-sm {
+  padding: 0.55rem 1.2rem;
+  font-size: 0.65rem;
+}
+
+/* ══════════════════════════════════════════
+   SCROLL HINT
+══════════════════════════════════════════ */
+.scroll-hint {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  animation: fadeUp 1s ease 1.2s both;
+}
+.scroll-line {
+  width: 1px; height: 44px;
+  background: linear-gradient(to bottom, transparent, var(--cyan));
+  animation: scrollPulse 2.2s ease infinite;
+}
+.scroll-hint span {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════
+   SECTIONS
+══════════════════════════════════════════ */
+section { padding: 5rem 2.5rem; }
+
+.section-tag {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.section-tag::before { content: '//'; color: var(--muted); }
+.section-title {
+  font-family: var(--ui);
+  font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+  font-weight: 600;
+  color: var(--white);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 0.3rem;
+}
+.section-header { margin-bottom: 2.5rem; }
+
+/* ══════════════════════════════════════════
+   PANEL
+══════════════════════════════════════════ */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.panel-header {
+  padding: 0.75rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(80,120,255,0.04);
+}
+.panel-title {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.panel-dots { display: flex; gap: 0.35rem; }
+.panel-dots span {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+}
+.panel-dots span:nth-child(1) { background: var(--red); }
+.panel-dots span:nth-child(2) { background: var(--gold); }
+.panel-dots span:nth-child(3) { background: var(--green); }
+.panel-body { padding: 1.2rem; }
+
+/* ══════════════════════════════════════════
+   ANALYZER LAYOUT
+══════════════════════════════════════════ */
+.analyzer-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ══════════════════════════════════════════
+   FORM
+══════════════════════════════════════════ */
+.form-grid { display: flex; flex-direction: column; gap: 0.9rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.field { display: flex; flex-direction: column; gap: 0.35rem; }
+.field label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.field input {
+  background: rgba(80,120,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.85rem;
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+  width: 100%;
+  -webkit-appearance: none;
+}
+.field input:focus {
+  border-color: var(--cyan);
+  background: rgba(0,212,232,0.04);
+}
+.field input::placeholder { color: var(--muted); }
+
+.analyze-btn {
+  width: 100%;
+  padding: 0.85rem;
+  background: var(--cyan);
+  color: var(--black);
+  border: none;
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s;
+  margin-top: 0.25rem;
+}
+.analyze-btn:hover {
+  background: var(--white);
+  box-shadow: 0 8px 28px rgba(0,212,232,0.22);
+}
+.analyze-btn:active { transform: scale(0.98); }
+
+/* ══════════════════════════════════════════
+   STAR LIST
+══════════════════════════════════════════ */
+.stars-list { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.9rem; }
+.star-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  background: rgba(80,120,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.star-chip:hover, .star-chip.active {
+  border-color: rgba(0,212,232,0.4);
+  background: rgba(0,212,232,0.06);
+}
+.star-chip-name { font-size: 0.8rem; color: var(--white); font-weight: 500; }
+.star-chip-meta { font-family: var(--mono); font-size: 0.58rem; color: var(--dim); margin-top: 0.15rem; }
+.star-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+.chip-actions { display: flex; gap: 0.5rem; }
+
+/* ══════════════════════════════════════════
+   DATA GRID
+══════════════════════════════════════════ */
+.data-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.data-cell {
+  background: var(--panel);
+  padding: 0.9rem 1rem;
+  transition: background 0.2s;
+}
+.data-cell:hover { background: rgba(0,212,232,0.04); }
+.data-cell-label {
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 0.4rem;
+}
+.data-cell-value {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--white);
+}
+.data-cell-unit { font-size: 0.58rem; color: var(--dim); margin-left: 0.15rem; }
+
+/* ══════════════════════════════════════════
+   STAR VISUAL
+══════════════════════════════════════════ */
+.star-canvas-wrap {
+  height: 240px;
+  background: rgba(0,0,5,0.7);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+#starCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.star-canvas-name {
+  position: absolute;
+  top: 1rem; left: 1rem;
+  font-family: var(--ui);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--white);
+}
+.star-canvas-type {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  border: 1px solid rgba(0,212,232,0.2);
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius);
+}
+.star-canvas-hint {
+  position: absolute;
+  bottom: 0.75rem; left: 1rem;
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════
+   STATUS BAR
+══════════════════════════════════════════ */
+.status-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  padding: 0.8rem 1rem;
+  background: rgba(80,120,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+}
+.s-indicator { display: flex; align-items: center; gap: 0.35rem; }
+.s-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* ══════════════════════════════════════════
+   WAVELENGTH
+══════════════════════════════════════════ */
+.wl-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(to right,#7b00d4,#3300ff,#00aaff,#00ff88,#aaff00,#ffaa00,#ff0000);
+  margin: 0.4rem 0;
+  position: relative;
+}
+.wl-marker {
+  position: absolute;
+  top: -3.5px;
+  width: 2px; height: 12px;
+  background: #fff;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  transition: left 0.5s ease;
+}
+.wl-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.5rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
+
+/* ══════════════════════════════════════════
+   EVOLUTION TIMELINE
+══════════════════════════════════════════ */
+.evo-timeline { display: flex; flex-direction: column; }
+.evo-stage {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+  padding: 1rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.evo-stage:last-child { border-bottom: none; }
+.evo-stage:hover { background: rgba(0,212,232,0.025); }
+.evo-dot-col { display: flex; flex-direction: column; align-items: center; }
+.evo-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cyan);
+  background: var(--black);
+  flex-shrink: 0;
+}
+.evo-dot.filled { background: var(--cyan); }
+.evo-connector { width: 1px; flex: 1; min-height: 24px; background: var(--border); margin: 3px 0; }
+.evo-content { flex: 1; }
+.evo-num {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  margin-bottom: 0.2rem;
+  text-transform: uppercase;
+}
+.evo-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 0.2rem;
+}
+.evo-age { font-family: var(--mono); font-size: 0.65rem; color: var(--cyan); }
+.evo-detail { font-family: var(--mono); font-size: 0.58rem; color: var(--dim); margin-top: 0.15rem; }
+
+/* ══════════════════════════════════════════
+   SORT TABLE
+══════════════════════════════════════════ */
+.sort-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.sort-btn {
+  padding: 0.45rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sort-btn:hover, .sort-btn.active {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(0,212,232,0.05);
+}
+.star-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+.star-table th {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--dim);
+  padding: 0.7rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.star-table td {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid rgba(80,120,255,0.06);
+  transition: background 0.15s;
+}
+.star-table tr:hover td { background: rgba(0,212,232,0.03); cursor: pointer; }
+.td-name { color: var(--white); font-weight: 700; }
+.td-badge {
+  display: inline-flex;
+  padding: 0.18rem 0.55rem;
+  border-radius: 2px;
+  font-size: 0.55rem;
+  letter-spacing: 0.07em;
+  border: 1px solid;
+}
+
+/* ══════════════════════════════════════════
+   ABOUT / CODE
+══════════════════════════════════════════ */
+.about-section {
+  background: rgba(5,7,16,0.5);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3.5rem;
+  align-items: center;
+}
+.about-text p {
+  font-size: 0.82rem;
+  color: var(--dim);
+  line-height: 1.9;
+  margin-bottom: 1rem;
+}
+.code-block {
+  background: rgba(0,0,5,0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  line-height: 1.85;
+  overflow: hidden;
+  position: relative;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.code-block::before {
+  content: 'C++ SOURCE';
+  position: absolute;
+  top: 0.6rem; right: 1rem;
+  font-size: 0.5rem;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+}
+.c-kw { color: #c792ea; }
+.c-ty { color: var(--gold); }
+.c-st { color: var(--green); }
+.c-cm { color: var(--muted); font-style: italic; }
+.c-nu { color: var(--cyan); }
+.c-fn { color: #7ab4ff; }
+
+/* ══════════════════════════════════════════
+   FEATURES GRID
+══════════════════════════════════════════ */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 3rem;
+}
+.feature-card {
+  background: var(--panel);
+  padding: 1.8rem 1.4rem;
+  transition: background 0.2s;
+}
+.feature-card:hover { background: rgba(0,212,232,0.04); }
+.feature-icon { font-size: 1.3rem; margin-bottom: 0.8rem; }
+.feature-name { font-size: 0.9rem; font-weight: 600; color: var(--white); margin-bottom: 0.4rem; }
+.feature-desc { font-size: 0.72rem; color: var(--dim); line-height: 1.7; }
+
+/* ══════════════════════════════════════════
+   EMPTY STATE
+══════════════════════════════════════════ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 2rem;
+  text-align: center;
+  color: var(--dim);
+  gap: 0.75rem;
+}
+.empty-icon { font-size: 2.5rem; opacity: 0.25; }
+.empty-label { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; }
+.empty-sub { font-size: 0.62rem; color: var(--muted); }
+
+/* ══════════════════════════════════════════
+   RESULTS AREA
+══════════════════════════════════════════ */
+.results-area { display: flex; flex-direction: column; gap: 1.2rem; }
+
+/* ══════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 1.8rem 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: rgba(0,0,5,0.8);
+}
+.footer-logo { font-family: var(--mono); font-size: 0.72rem; color: var(--dim); }
+.footer-links { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+.footer-links a {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--cyan); }
+.footer-copy { font-family: var(--mono); font-size: 0.58rem; color: var(--muted); }
+
+/* ══════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════ */
+.toast {
+  position: fixed;
+  bottom: 1.5rem; right: 1.5rem;
+  background: var(--panel);
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius);
+  padding: 0.85rem 1.3rem;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--cyan);
+  z-index: 300;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.35s ease;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  max-width: 280px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+
+/* ══════════════════════════════════════════
+   REVEAL ANIMATIONS
+══════════════════════════════════════════ */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-d1 { transition-delay: 0.1s; }
+.reveal-d2 { transition-delay: 0.2s; }
+.reveal-d3 { transition-delay: 0.3s; }
+
+/* ══════════════════════════════════════════
+   KEYFRAMES
+══════════════════════════════════════════ */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes blink {
+  0%,100% { opacity:1; }
+  50% { opacity:0.3; }
+}
+@keyframes scrollPulse {
+  0%   { opacity:0; transform:scaleY(0); transform-origin:top; }
+  50%  { opacity:1; transform:scaleY(1); }
+  100% { opacity:0; transform:scaleY(0); transform-origin:bottom; }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — TABLET
+══════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .analyzer-layout { grid-template-columns: 1fr; }
+  .about-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .data-grid { grid-template-columns: repeat(2, 1fr); }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .nav-links { display: none; }
+  .hamburger { display: flex; }
+  .nav-status { display: none; }
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE — MOBILE
+══════════════════════════════════════════ */
+@media (max-width: 600px) {
+  nav { padding: 0.9rem 1.2rem; }
+  section { padding: 4rem 1.2rem; }
+  footer { padding: 1.5rem 1.2rem; flex-direction: column; align-items: flex-start; }
+  .hero { padding: 6rem 1.2rem 4rem; }
+  .hero-actions { flex-direction: column; align-items: center; width: 100%; }
+  .hero-actions .btn { width: 100%; justify-content: center; }
+  .form-row { grid-template-columns: 1fr; }
+  .data-grid { grid-template-columns: repeat(2,1fr); }
+  .features-grid { grid-template-columns: 1fr; }
+  .sort-controls { gap: 0.4rem; }
+  .chip-actions { flex-direction: column; gap: 0.35rem; }
+  .chip-actions .btn-sm { width: 100%; justify-content: center; }
+  .star-canvas-wrap { height: 200px; }
+  .scroll-hint { display: none; }
+}
+
+/* iOS safe area */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  footer { padding-bottom: calc(1.8rem + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(1.5rem + env(safe-area-inset-bottom)); }
+}
+
+/* Table scroll on mobile */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+
+<div class="page">
+
+<!-- ── NAV ── -->
+<nav id="nav">
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-dot"></div>
+    Stellar Observatory
+  </a>
+  <ul class="nav-links">
+    <li><a href="#analyzer">Analyzer</a></li>
+    <li><a href="#sort">Compare</a></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="#" id="navGithub" target="_blank" rel="noopener">GitHub ↗</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-status">SYSTEM ONLINE</div>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile nav drawer -->
+<div class="mobile-nav" id="mobileNav">
+  <a href="#analyzer" onclick="closeMobileNav()">Analyzer</a>
+  <a href="#sort" onclick="closeMobileNav()">Compare</a>
+  <a href="#about" onclick="closeMobileNav()">About</a>
+  <a href="#" id="mobileGithub" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-badge">Astrophysics Simulation Engine · v2.0</div>
+  <h1 class="hero-title">
+    Stellar<br>
+    <span class="hero-title-accent">Observatory</span>
+  </h1>
+  <p class="hero-subtitle-line">Physics-accurate star analysis system</p>
+  <p class="hero-desc">
+    Compute luminosity, flux, peak wavelength, gravitational redshift,
+    Schwarzschild radius, and full evolutionary timelines from stellar parameters.
+  </p>
+  <div class="hero-actions">
+    <a href="#analyzer" class="btn btn-primary">▶ Launch Analyzer</a>
+    <a href="#" class="btn btn-ghost" id="heroGithub" target="_blank" rel="noopener">⬡ View on GitHub</a>
+  </div>
+  <div class="scroll-hint">
+    <div class="scroll-line"></div>
+    <span>scroll</span>
+  </div>
+</section>
+
+<!-- ── ANALYZER ── -->
+<section id="analyzer">
+  <div class="section-header reveal">
+    <div class="section-tag">Core Module</div>
+    <h2 class="section-title">Star Analyzer</h2>
+  </div>
+
+  <div class="analyzer-layout">
+
+    <!-- Left column -->
+    <div style="display:flex;flex-direction:column;gap:1rem;">
+
+      <!-- Input -->
+      <div class="panel reveal reveal-d1">
+        <div class="panel-header">
+          <span class="panel-title">Input Parameters</span>
+          <div class="panel-dots"><span></span><span></span><span></span></div>
+        </div>
+        <div class="panel-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>Star Name</label>
+              <input type="text" id="inp-name" placeholder="e.g. Betelgeuse" autocomplete="off">
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>Radius (m)</label>
+                <input type="number" id="inp-radius" placeholder="6.96e8" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label>Temperature (K)</label>
+                <input type="number" id="inp-temp" placeholder="5778" inputmode="decimal">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>Distance (m)</label>
+                <input type="number" id="inp-dist" placeholder="1.496e11" inputmode="decimal">
+              </div>
+              <div class="field">
+                <label>Initial Mass (M☉)</label>
+                <input type="number" id="inp-mass" placeholder="1.0" inputmode="decimal">
+              </div>
+            </div>
+            <button class="analyze-btn" onclick="addStar()">+ Analyze Star</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Registry -->
+      <div class="panel reveal reveal-d2">
+        <div class="panel-header">
+          <span class="panel-title">Star Registry</span>
+          <span id="star-count" style="font-family:var(--mono);font-size:0.58rem;color:var(--dim)">0 stars</span>
+        </div>
+        <div class="panel-body">
+          <div class="stars-list" id="stars-list">
+            <div class="empty-state" style="padding:1.2rem">
+              <div class="empty-icon">✦</div>
+              <div class="empty-label">No stars analyzed yet</div>
+            </div>
+          </div>
+          <div class="chip-actions">
+            <button class="btn btn-ghost btn-sm" onclick="loadPresets()">Load Presets</button>
+            <button class="btn btn-ghost btn-sm" onclick="clearAll()">Clear All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-area" id="results-area">
+      <div class="panel empty-state" style="min-height:280px;">
+        <div class="empty-icon">⊙</div>
+        <div class="empty-label">Analyze a star to see results</div>
+        <div class="empty-sub">Fill in the parameters on the left</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SORT ── -->
+<section id="sort" style="padding-top:0;">
+  <div class="section-header reveal">
+    <div class="section-tag">Comparison Module</div>
+    <h2 class="section-title">Sort & Compare</h2>
+  </div>
+  <div class="sort-controls reveal reveal-d1">
+    <button class="sort-btn active" onclick="sortStars('L',this)">Luminosity ↓</button>
+    <button class="sort-btn" onclick="sortStars('T',this)">Temperature ↓</button>
+    <button class="sort-btn" onclick="sortStars('schw_R',this)">Schwarzschild R ↓</button>
+    <button class="sort-btn" onclick="sortStars('redshift_F',this)">Redshift ↑</button>
+    <button class="sort-btn" onclick="sortStars('lambda',this)">Peak λ ↓</button>
+  </div>
+  <div class="panel reveal reveal-d2">
+    <div class="panel-header">
+      <span class="panel-title">Stellar Comparison Table</span>
+      <span id="table-count" style="font-family:var(--mono);font-size:0.58rem;color:var(--dim)">0 entries</span>
+    </div>
+    <div class="table-scroll">
+      <table class="star-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Temp (K)</th>
+            <th>Luminosity (W)</th>
+            <th>Peak λ (nm)</th>
+            <th>Flux (W/m²)</th>
+            <th>Schw. R (m)</th>
+            <th>Redshift</th>
+            <th>Remnant</th>
+            <th>Color</th>
+          </tr>
+        </thead>
+        <tbody id="star-tbody">
+          <tr>
+            <td colspan="9" style="text-align:center;color:var(--muted);padding:2.5rem;font-size:0.7rem;">
+              No stars analyzed yet — add stars above
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── ABOUT ── -->
+<section class="about-section" id="about">
+  <div class="about-grid reveal">
+    <div class="about-text">
+      <div class="section-tag">About this project</div>
+      <h2 class="section-title" style="margin-bottom:1.2rem;">Physics Engine</h2>
+      <p>A web interface for a C++ stellar physics engine. Computes real astrophysical quantities using Stefan–Boltzmann law, Wien's displacement law, and Schwarzschild general relativistic effects.</p>
+      <p>The gravitational redshift factor √(1 − rₛ/R) determines photon escape conditions. Stellar evolution uses mass-luminosity relations to estimate lifetimes across three recursive stages.</p>
+      <p>Updated v2 includes the Fading Red Dwarf branch for sub-0.5 M☉ stars that never leave the main sequence, and a proper menu system.</p>
+      <div style="margin-top:1.2rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <a href="#" class="btn btn-primary btn-sm" id="aboutGithub" target="_blank" rel="noopener">⬡ GitHub Repository</a>
+        <a href="#analyzer" class="btn btn-ghost btn-sm">▶ Try Analyzer</a>
+      </div>
+    </div>
+    <div class="code-block reveal reveal-d1"><span class="c-cm">// Stefan-Boltzmann + Wien's law</span>
+<span class="c-ty">void</span> <span class="c-fn">analyzeStar</span>(Star &s){
+  s.L=<span class="c-nu">4</span>*pi*s.R*s.R*sigma*<span class="c-fn">pow</span>(s.T,<span class="c-nu">4</span>);
+  s.lambda=b/s.T;
+  s.F=s.L/(<span class="c-nu">4</span>*pi*s.d*s.d);
+  s.schw_R=(<span class="c-nu">2</span>*G*(s.i_mass*solar_mass))/(c*c);
+
+  <span class="c-cm">// Schwarzschild redshift (GR)</span>
+  <span class="c-kw">if</span>(s.R &lt;= s.schw_R)
+    s.status=<span class="c-st">"Black hole - no escape"</span>;
+  <span class="c-kw">else</span>
+    s.redshift_F=<span class="c-fn">sqrt</span>(<span class="c-nu">1.0</span>-(s.schw_R/s.R));
+}
+
+<span class="c-cm">// Fading Red Dwarf branch (v2)</span>
+<span class="c-kw">if</span>(s.i_mass &lt; <span class="c-nu">0.5</span>){
+  s.evo_status=<span class="c-st">"Fading Red Dwarf"</span>;
+  <span class="c-fn">evolve</span>(s, age, <span class="c-nu">2</span>); <span class="c-kw">return</span>;
+}
+</div>
+  </div>
+
+  <div class="features-grid reveal reveal-d1" style="margin-top:3rem;">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-name">Stefan–Boltzmann</div>
+      <div class="feature-desc">L = 4πR²σT⁴ — luminosity from surface area and temperature with full double precision.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🌀</div>
+      <div class="feature-name">Gravitational Redshift</div>
+      <div class="feature-desc">Schwarzschild factor √(1 − rₛ/R) models photon energy loss escaping a gravitational well.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏳</div>
+      <div class="feature-name">Stellar Evolution</div>
+      <div class="feature-desc">Recursive 3-stage timeline with Fading Red Dwarf, Red Giant, and Supergiant branches.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔬</div>
+      <div class="feature-name">Wien's Law</div>
+      <div class="feature-desc">Peak wavelength λ = b/T maps each star's color from UV through infrared.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📡</div>
+      <div class="feature-name">Flux & Pressure</div>
+      <div class="feature-desc">F = L/(4πd²) and P = F/c with detection threshold classification.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔀</div>
+      <div class="feature-name">Sort & Compare</div>
+      <div class="feature-desc">Multi-star registry with real-time sorting by 5 astrophysical parameters.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-logo">Stellar Observatory · v2.0</div>
+  <div class="footer-links">
+    <a href="#analyzer">Analyzer</a>
+    <a href="#sort">Compare</a>
+    <a href="#about">About</a>
+    <a href="#" id="footerGithub" target="_blank" rel="noopener">GitHub</a>
+  </div>
+  <div class="footer-copy">Built with physics.</div>
+</footer>
+
+</div><!-- .page -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════════════
+   GITHUB URL — change this one line
+════════════════════════════════════════ */
+const GITHUB_URL = 'https://github.com/YOUR_USERNAME/stellar-observatory';
+
+// Wire all github buttons
+['navGithub','heroGithub','aboutGithub','mobileGithub','footerGithub'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.href = GITHUB_URL;
+});
+
+/* ════════════════════════════════════════
+   STARFIELD
+════════════════════════════════════════ */
+const sfCanvas = document.getElementById('starfield');
+const sfCtx = sfCanvas.getContext('2d');
+let SF = [], nebulae = [], W, H, mx = 0, my = 0, raf = 0;
+
+function resize() {
+  W = sfCanvas.width = window.innerWidth;
+  H = sfCanvas.height = window.innerHeight;
+  buildStars();
+}
+
+function buildStars() {
+  SF = [];
+  nebulae = [];
+  const n = Math.min(Math.floor(W * H / 2800), 400);
+  for (let i = 0; i < n; i++) {
+    SF.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.6 + 0.2,
+      base: Math.random() * 0.65 + 0.35,
+      speed: Math.random() * 0.015 + 0.004,
+      phase: Math.random() * Math.PI * 2,
+      color: starColor(),
+      pf: Math.random() * 0.018,
+    });
+  }
+  for (let i = 0; i < 3; i++) {
+    nebulae.push({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 180 + 80,
+      h: [210, 250, 175][i],
+      a: Math.random() * 0.035 + 0.008,
+    });
+  }
+}
+
+function starColor() {
+  const r = Math.random();
+  if (r < 0.05) return '#a0c0ff';
+  if (r < 0.15) return '#ccdcff';
+  if (r < 0.35) return '#fff8e0';
+  if (r < 0.6)  return '#ffe0a0';
+  return '#ff9060';
+}
+
+let t = 0;
+function drawSF() {
+  sfCtx.clearRect(0, 0, W, H);
+  t += 0.006;
+  const px = (mx / W - 0.5) * 12, py = (my / H - 0.5) * 12;
+
+  nebulae.forEach(n => {
+    const g = sfCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+    g.addColorStop(0, `hsla(${n.h},75%,55%,${n.a})`);
+    g.addColorStop(1, 'transparent');
+    sfCtx.fillStyle = g;
+    sfCtx.beginPath();
+    sfCtx.arc(n.x, n.y, n.r, 0, Math.PI*2);
+    sfCtx.fill();
+  });
+
+  SF.forEach(s => {
+    const a = s.base * (0.65 + 0.35 * Math.sin(t * s.speed * 100 + s.phase));
+    const cx = s.x + px * s.pf * 50;
+    const cy = s.y + py * s.pf * 50;
+
+    if (s.r > 1.1) {
+      const gw = sfCtx.createRadialGradient(cx, cy, 0, cx, cy, s.r * 4.5);
+      gw.addColorStop(0, s.color + '55');
+      gw.addColorStop(1, 'transparent');
+      sfCtx.fillStyle = gw;
+      sfCtx.beginPath();
+      sfCtx.arc(cx, cy, s.r * 4.5, 0, Math.PI*2);
+      sfCtx.fill();
+      // Diffraction spikes
+      sfCtx.globalAlpha = a * 0.25;
+      sfCtx.strokeStyle = s.color;
+      sfCtx.lineWidth = 0.5;
+      sfCtx.beginPath();
+      sfCtx.moveTo(cx - s.r*5.5, cy); sfCtx.lineTo(cx + s.r*5.5, cy);
+      sfCtx.moveTo(cx, cy - s.r*5.5); sfCtx.lineTo(cx, cy + s.r*5.5);
+      sfCtx.stroke();
+      sfCtx.globalAlpha = 1;
+    }
+
+    sfCtx.globalAlpha = a;
+    sfCtx.fillStyle = s.color;
+    sfCtx.beginPath();
+    sfCtx.arc(cx, cy, s.r, 0, Math.PI*2);
+    sfCtx.fill();
+    sfCtx.globalAlpha = 1;
+  });
+
+  requestAnimationFrame(drawSF);
+}
+
+window.addEventListener('resize', resize);
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+document.addEventListener('touchmove', e => {
+  if (e.touches[0]) { mx = e.touches[0].clientX; my = e.touches[0].clientY; }
+}, { passive: true });
+resize();
+drawSF();
+
+/* ════════════════════════════════════════
+   NAV
+════════════════════════════════════════ */
+const navEl = document.getElementById('nav');
+window.addEventListener('scroll', () => navEl.classList.toggle('compact', window.scrollY > 60));
+
+const hamburger = document.getElementById('hamburger');
+const mobileNav = document.getElementById('mobileNav');
+hamburger.addEventListener('click', () => {
+  hamburger.classList.toggle('open');
+  mobileNav.classList.toggle('open');
+  document.body.style.overflow = mobileNav.classList.contains('open') ? 'hidden' : '';
+});
+function closeMobileNav() {
+  hamburger.classList.remove('open');
+  mobileNav.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ════════════════════════════════════════
+   PHYSICS — ported from C++ v2
+════════════════════════════════════════ */
+const PI = Math.PI;
+const SIGMA = 5.67e-8;
+const B_WIEN = 2.898e-3;
+const C_LIGHT = 3e8;
+const G_N = 6.674e-11;
+const SOLAR_MASS = 1.989e30;
+const SOLAR_L = 3.828e26;
+
+function analyzeStar(s) {
+  s.L = 4 * PI * s.R * s.R * SIGMA * Math.pow(s.T, 4);
+  s.lambda = B_WIEN / s.T;
+  s.F = s.L / (4 * PI * s.d * s.d);
+  s.P = s.F / C_LIGHT;
+  s.schw_R = (2 * G_N * (s.i_mass * SOLAR_MASS)) / (C_LIGHT * C_LIGHT);
+
+  if (s.R <= s.schw_R) {
+    s.redshift_F = 0; s.redshift_T = 0;
+    s.status = 'Black hole — no escape';
+  } else {
+    s.redshift_F = Math.sqrt(1.0 - (s.schw_R / s.R));
+    s.redshift_T = s.T * s.redshift_F;
+    s.status = s.redshift_F > 0.01
+      ? 'Photon escapes — redshifted'
+      : 'Extreme redshift — barely escapes';
+  }
+}
+
+function classifier(w) {
+  if (w.i_mass < 0.87) {
+    w.r_mass = -1;
+    w.r_type = 'Eternal — outlives universe';
+  } else if (w.i_mass <= 8) {
+    w.r_mass = 0.109 * w.i_mass + 0.394;
+    w.r_type = w.r_mass < 1.4 ? 'White Dwarf' : w.r_mass <= 3.0 ? 'Neutron Star' : 'Black Hole';
+  } else {
+    w.r_mass = 0.15 * w.i_mass;
+    w.r_type = w.r_mass <= 3.0 ? 'Neutron Star' : 'Black Hole';
+  }
+}
+
+function msLifetime(s) {
+  const Ls = s.L / SOLAR_L;
+  if (Ls === 0) return 0;
+  return (s.i_mass / Ls) * 10000;
+}
+
+// Matches C++ evolve() with v2 Fading Red Dwarf branch
+function buildEvoStages(s) {
+  const msLife = msLifetime(s);
+  const stages = [];
+  // Stage 0
+  stages.push({
+    num: 'Stage 0', name: 'Main Sequence',
+    age: '0 Myr',
+    detail: `MS Lifetime: ${fmtAge(msLife)}`
+  });
+  // Stage 1
+  if (s.i_mass < 0.5) {
+    stages.push({
+      num: 'Stage 1', name: 'Fading Red Dwarf',
+      age: fmtAge(msLife),
+      detail: 'Never leaves main sequence',
+      special: true
+    });
+  } else {
+    const g1name = s.i_mass < 8 ? 'Red Giant' : 'Supergiant';
+    const postMs = msLife * 0.1;
+    stages.push({
+      num: 'Stage 1', name: g1name,
+      age: fmtAge(msLife),
+      detail: `Duration: ~${postMs.toFixed(1)} Myr`
+    });
+    // Stage 2 — final
+    stages.push({
+      num: 'Stage 2 — Final', name: s.r_type,
+      age: fmtAge(msLife + postMs),
+      detail: s.r_mass > 0 ? `Remnant: ${s.r_mass.toFixed(3)} M☉` : '',
+      final: true
+    });
+  }
+  return stages;
+}
+
+function fmtAge(myr) {
+  if (myr <= 0) return '—';
+  if (myr > 1e6) return (myr / 1e6).toFixed(2) + ' Tyr';
+  if (myr > 1000) return (myr / 1000).toFixed(2) + ' Gyr';
+  return myr.toFixed(1) + ' Myr';
+}
+
+function getColor(lambda) {
+  if (lambda < 4.5e-7) return { label: 'Blue/UV',       hex: '#7ab4ff' };
+  if (lambda < 5.5e-7) return { label: 'Yellow/Green',  hex: '#d4ff70' };
+  if (lambda < 7.0e-7) return { label: 'Orange/Red',    hex: '#ff8050' };
+  return                      { label: 'Infrared',       hex: '#ff3020' };
+}
+
+const REMNANT_COLORS = {
+  'White Dwarf':             { b: '#a0c0ff', t: '#a0c0ff', bg: 'rgba(160,192,255,0.08)' },
+  'Neutron Star':            { b: '#f0a830', t: '#f0a830', bg: 'rgba(240,168,48,0.08)' },
+  'Black Hole':              { b: '#ff4455', t: '#ff4455', bg: 'rgba(255,68,85,0.08)' },
+  'Eternal — outlives universe': { b: '#00e888', t: '#00e888', bg: 'rgba(0,232,136,0.08)' },
+};
+function rc(r) { return REMNANT_COLORS[r] || { b: 'var(--cyan)', t: 'var(--cyan)', bg: 'transparent' }; }
+
+function fmtSci(n) {
+  if (!isFinite(n) || n === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(n)));
+  const m = (n / Math.pow(10, e)).toFixed(2);
+  return `${m}×10<sup>${e}</sup>`;
+}
+
+/* ════════════════════════════════════════
+   STAR CANVAS RENDERER
+════════════════════════════════════════ */
+function drawStarVisual(star) {
+  const canvas = document.getElementById('starCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = w; canvas.height = h;
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2;
+  const col = getColor(star.lambda);
+
+  // Black hole
+  if (star.R <= star.schw_R) {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 90);
+    g.addColorStop(0, '#000');
+    g.addColorStop(0.65, 'rgba(255,100,20,0.35)');
+    g.addColorStop(1, 'transparent');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, 90, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,160,30,0.55)';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(cx, cy, 100, 22, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(cx, cy, 32, 0, Math.PI*2); ctx.fill();
+    return;
+  }
+
+  const solarR = 6.96e8;
+  const logR = Math.log10(Math.max(star.R / solarR, 0.001) + 1);
+  const vr = Math.max(18, Math.min(68, logR * 38 + 18));
+
+  // Outer glow
+  const g1 = ctx.createRadialGradient(cx, cy, vr * 0.6, cx, cy, vr * 3.8);
+  g1.addColorStop(0, col.hex + '35'); g1.addColorStop(1, 'transparent');
+  ctx.fillStyle = g1;
+  ctx.beginPath(); ctx.arc(cx, cy, vr * 3.8, 0, Math.PI*2); ctx.fill();
+
+  // Mid glow
+  const g2 = ctx.createRadialGradient(cx, cy, 0, cx, cy, vr * 1.9);
+  g2.addColorStop(0, col.hex + 'bb'); g2.addColorStop(0.5, col.hex + '50'); g2.addColorStop(1, 'transparent');
+  ctx.fillStyle = g2;
+  ctx.beginPath(); ctx.arc(cx, cy, vr * 1.9, 0, Math.PI*2); ctx.fill();
+
+  // Body
+  const g3 = ctx.createRadialGradient(cx - vr*0.25, cy - vr*0.25, 0, cx, cy, vr);
+  g3.addColorStop(0, '#ffffff'); g3.addColorStop(0.35, col.hex); g3.addColorStop(1, col.hex + '70');
+  ctx.fillStyle = g3;
+  ctx.beginPath(); ctx.arc(cx, cy, vr, 0, Math.PI*2); ctx.fill();
+
+  // Spikes
+  ctx.strokeStyle = col.hex + '50'; ctx.lineWidth = 0.8;
+  for (let a = 0; a < 4; a++) {
+    const ang = (a * Math.PI) / 4;
+    [[1,1],[-1,-1]].forEach(([s1,s2]) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang)*vr*s1, cy + Math.sin(ang)*vr*s1);
+      ctx.lineTo(cx + Math.cos(ang)*vr*4.5*s1, cy + Math.sin(ang)*vr*4.5*s1);
+      ctx.stroke();
+    });
+  }
+
+  // Schwarzschild dashed ring
+  const sr = (star.schw_R / star.R) * vr;
+  if (sr > 0.5) {
+    ctx.strokeStyle = 'rgba(255,68,85,0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.arc(cx, cy, Math.max(sr, 2), 0, Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* ════════════════════════════════════════
+   RENDER RESULTS
+════════════════════════════════════════ */
+function renderResults(star) {
+  const col = getColor(star.lambda);
+  const rCol = rc(star.r_type);
+  const detected = star.P > 1e-8;
+  const lamNm = star.lambda * 1e9;
+  const wlPct = Math.max(0, Math.min(100, ((lamNm - 380) / (750 - 380)) * 100));
+  const evoStages = buildEvoStages(star);
+
+  const html = `
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Visual Render</span>
+        <div class="panel-dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="star-canvas-wrap">
+        <canvas id="starCanvas"></canvas>
+        <div class="star-canvas-name">${star.name}</div>
+        <div class="star-canvas-type" style="color:${rCol.t};border-color:${rCol.b}30">${star.r_type}</div>
+        <div class="star-canvas-hint">Schwarzschild radius · red dashed</div>
+      </div>
+    </div>
+
+    <div class="data-grid">
+      <div class="data-cell">
+        <div class="data-cell-label">Luminosity</div>
+        <div class="data-cell-value">${fmtSci(star.L)}<span class="data-cell-unit">W</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Temperature</div>
+        <div class="data-cell-value">${star.T.toLocaleString()}<span class="data-cell-unit">K</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Peak Wavelength</div>
+        <div class="data-cell-value">${lamNm.toFixed(1)}<span class="data-cell-unit">nm</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Radiation Flux</div>
+        <div class="data-cell-value">${fmtSci(star.F)}<span class="data-cell-unit">W/m²</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Rad. Pressure</div>
+        <div class="data-cell-value">${fmtSci(star.P)}<span class="data-cell-unit">Pa</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Schwarzschild R</div>
+        <div class="data-cell-value">${fmtSci(star.schw_R)}<span class="data-cell-unit">m</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Redshift Factor</div>
+        <div class="data-cell-value">${star.redshift_F.toFixed(6)}</div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Observed Temp</div>
+        <div class="data-cell-value">${star.redshift_T.toFixed(1)}<span class="data-cell-unit">K</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Status & Classification</span></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:0.9rem;">
+        <div class="status-bar">
+          <div class="s-indicator">
+            <div class="s-dot" style="background:${col.hex}"></div>
+            <span style="color:${col.hex}">${col.label}</span>
+          </div>
+          <div class="s-indicator">
+            <div class="s-dot" style="background:${rCol.b}"></div>
+            <span style="color:${rCol.t}">${star.r_type}</span>
+          </div>
+          <div class="s-indicator">
+            <div class="s-dot" style="background:${detected ? 'var(--green)' : 'var(--muted)'}"></div>
+            <span style="color:${detected ? 'var(--green)' : 'var(--dim)'}">Flux: ${detected ? 'DETECTED' : 'Below threshold'}</span>
+          </div>
+          <div class="s-indicator" style="margin-left:auto;">
+            <span style="color:var(--dim);font-size:0.58rem;">${star.status}</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:0.55rem;color:var(--dim);margin-bottom:0.35rem;letter-spacing:0.1em;text-transform:uppercase;">
+            Peak λ on electromagnetic spectrum
+          </div>
+          <div class="wl-bar"><div class="wl-marker" style="left:${wlPct}%"></div></div>
+          <div class="wl-labels"><span>380nm UV</span><span>550nm VIS</span><span>750nm IR</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header"><span class="panel-title">Stellar Evolution Timeline</span></div>
+      <div class="evo-timeline">
+        ${evoStages.map((stg, i) => `
+          <div class="evo-stage">
+            <div class="evo-dot-col">
+              <div class="evo-dot filled" style="${stg.final ? 'background:'+rCol.b+';border-color:'+rCol.b : ''}"></div>
+              ${i < evoStages.length - 1 ? '<div class="evo-connector"></div>' : ''}
+            </div>
+            <div class="evo-content">
+              <div class="evo-num">${stg.num}</div>
+              <div class="evo-name" style="${stg.final ? 'color:'+rCol.t : ''}">${stg.name}</div>
+              <div class="evo-age">${stg.age}</div>
+              ${stg.detail ? `<div class="evo-detail">${stg.detail}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('results-area').innerHTML = html;
+  requestAnimationFrame(() => drawStarVisual(star));
+}
+
+/* ════════════════════════════════════════
+   REGISTRY STATE
+════════════════════════════════════════ */
+let registry = [];
+let selectedIdx = -1;
+let sortKey = 'L';
+
+function addStar() {
+  const name   = document.getElementById('inp-name').value.trim() || 'Unknown Star';
+  const R      = parseFloat(document.getElementById('inp-radius').value);
+  const T      = parseFloat(document.getElementById('inp-temp').value);
+  const d      = parseFloat(document.getElementById('inp-dist').value);
+  const i_mass = parseFloat(document.getElementById('inp-mass').value);
+
+  if ([R, T, d, i_mass].some(v => isNaN(v) || v <= 0)) {
+    toast('⚠ Fill all fields with positive numbers'); return;
+  }
+  const star = { name, R, T, d, i_mass };
+  analyzeStar(star);
+  classifier(star);
+  registry.push(star);
+  refreshList(); refreshTable();
+  selectStar(registry.length - 1);
+  ['inp-name','inp-radius','inp-temp','inp-dist','inp-mass'].forEach(id => document.getElementById(id).value = '');
+  toast(`✦ ${name} added to registry`);
+}
+
+function selectStar(i) {
+  selectedIdx = i;
+  document.querySelectorAll('.star-chip').forEach((c,j) => c.classList.toggle('active', j === i));
+  renderResults(registry[i]);
+}
+
+function refreshList() {
+  const el = document.getElementById('stars-list');
+  document.getElementById('star-count').textContent = registry.length + ' star' + (registry.length !== 1 ? 's' : '');
+  if (!registry.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:1.2rem"><div class="empty-icon">✦</div><div class="empty-label">No stars analyzed yet</div></div>`;
+    return;
+  }
+  el.innerHTML = registry.map((s, i) => {
+    const rCol = rc(s.r_type);
+    return `<div class="star-chip ${i === selectedIdx ? 'active' : ''}" onclick="selectStar(${i})">
+      <div>
+        <div class="star-chip-name">${s.name}</div>
+        <div class="star-chip-meta">${s.T.toLocaleString()} K · ${s.r_type}</div>
+      </div>
+      <div class="star-chip-dot" style="background:${rCol.b}"></div>
+    </div>`;
+  }).join('');
+}
+
+function refreshTable() {
+  const tbody = document.getElementById('star-tbody');
+  document.getElementById('table-count').textContent = registry.length + ' entr' + (registry.length === 1 ? 'y' : 'ies');
+  if (!registry.length) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2.5rem;font-size:0.7rem;">No stars analyzed yet</td></tr>`;
+    return;
+  }
+  const sorted = [...registry].sort((a, b) =>
+    sortKey === 'redshift_F' ? a[sortKey] - b[sortKey] : b[sortKey] - a[sortKey]
+  );
+  tbody.innerHTML = sorted.map(s => {
+    const col = getColor(s.lambda);
+    const rCol = rc(s.r_type);
+    const origIdx = registry.indexOf(s);
+    return `<tr onclick="selectStar(${origIdx});document.getElementById('analyzer').scrollIntoView({behavior:'smooth'})">
+      <td class="td-name">${s.name}</td>
+      <td>${s.T.toLocaleString()}</td>
+      <td>${s.L.toExponential(2)}</td>
+      <td>${(s.lambda*1e9).toFixed(1)}</td>
+      <td>${s.F.toExponential(2)}</td>
+      <td>${s.schw_R.toFixed(2)}</td>
+      <td>${s.redshift_F.toFixed(5)}</td>
+      <td><span class="td-badge" style="color:${rCol.t};border-color:${rCol.b};background:${rCol.bg}">${s.r_type}</span></td>
+      <td><span class="td-badge" style="color:${col.hex};border-color:${col.hex}40;background:${col.hex}10">${col.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function sortStars(key, btn) {
+  sortKey = key;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  refreshTable();
+}
+
+function clearAll() {
+  registry = []; selectedIdx = -1;
+  refreshList(); refreshTable();
+  document.getElementById('results-area').innerHTML = `
+    <div class="panel empty-state" style="min-height:280px;">
+      <div class="empty-icon">⊙</div>
+      <div class="empty-label">Analyze a star to see results</div>
+      <div class="empty-sub">Fill in the parameters on the left</div>
+    </div>`;
+  toast('Registry cleared');
+}
+
+function loadPresets() {
+  const presets = [
+    { name: 'Sun',             R: 6.96e8,  T: 5778,  d: 1.496e11, i_mass: 1.0  },
+    { name: 'Betelgeuse',      R: 8.87e11, T: 3500,  d: 1.92e19,  i_mass: 18   },
+    { name: 'Sirius A',        R: 1.19e9,  T: 9940,  d: 8.13e16,  i_mass: 2.1  },
+    { name: 'Proxima Centauri',R: 1.07e8,  T: 3042,  d: 3.97e16,  i_mass: 0.122},
+    { name: 'Neutron Star X',  R: 1.2e4,   T: 1e6,   d: 3e19,     i_mass: 15   },
+  ];
+  presets.forEach(p => {
+    const star = { ...p };
+    analyzeStar(star); classifier(star);
+    registry.push(star);
+  });
+  refreshList(); refreshTable();
+  selectStar(0);
+  toast('✦ 5 preset stars loaded');
+}
+
+/* ════════════════════════════════════════
+   TOAST
+════════════════════════════════════════ */
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ════════════════════════════════════════
+   SCROLL REVEAL
+════════════════════════════════════════ */
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+</script>
+</body>
+</html>
