@@ -853,6 +853,83 @@ footer {
 .reveal-d3 { transition-delay: 0.3s; }
 
 /* ══════════════════════════════════════════
+   CHARTS
+══════════════════════════════════════════ */
+.chart-wrap {
+  position: relative;
+  background: rgba(0,0,5,0.7);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.chart-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  background: rgba(8,11,22,0.96);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.7rem;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  line-height: 1.7;
+  color: var(--text);
+  z-index: 5;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.chart-tooltip.show { opacity: 1; }
+.chart-legend {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 1rem 0.1rem;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+.chart-legend .lg { display: flex; align-items: center; gap: 0.45rem; }
+.chart-legend .sw  { width: 14px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+.chart-legend .swd { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; border: 2px solid var(--black); box-shadow: 0 0 0 1px rgba(255,255,255,0.15); }
+
+/* EM spectrum bar */
+.em-bar {
+  height: 14px;
+  border-radius: 3px;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.em-marker {
+  position: absolute;
+  top: -5px;
+  width: 2px;
+  height: 24px;
+  background: #fff;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  transition: left 0.5s ease;
+  box-shadow: 0 0 6px rgba(255,255,255,0.8);
+}
+.em-bands {
+  display: flex;
+  font-family: var(--mono);
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin-top: 0.35rem;
+  text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════════
    KEYFRAMES
 ══════════════════════════════════════════ */
 @keyframes fadeUp {
@@ -926,6 +1003,7 @@ footer {
   </a>
   <ul class="nav-links">
     <li><a href="#analyzer">Analyzer</a></li>
+    <li><a href="#hr">H–R Diagram</a></li>
     <li><a href="#sort">Compare</a></li>
     <li><a href="#about">About</a></li>
     <li><a href="#" id="navGithub" target="_blank" rel="noopener">GitHub ↗</a></li>
@@ -941,6 +1019,7 @@ footer {
 <!-- Mobile nav drawer -->
 <div class="mobile-nav" id="mobileNav">
   <a href="#analyzer" onclick="closeMobileNav()">Analyzer</a>
+  <a href="#hr" onclick="closeMobileNav()">H–R Diagram</a>
   <a href="#sort" onclick="closeMobileNav()">Compare</a>
   <a href="#about" onclick="closeMobileNav()">About</a>
   <a href="#" id="mobileGithub" target="_blank" rel="noopener">GitHub ↗</a>
@@ -948,15 +1027,16 @@ footer {
 
 <!-- ── HERO ── -->
 <section class="hero">
-  <div class="hero-badge">Astrophysics Simulation Engine · v2.0</div>
+  <div class="hero-badge">Astrophysics Simulation Engine · v3.0</div>
   <h1 class="hero-title">
     Stellar<br>
     <span class="hero-title-accent">Observatory</span>
   </h1>
   <p class="hero-subtitle-line">Physics-accurate star analysis system</p>
   <p class="hero-desc">
-    Compute luminosity, flux, peak wavelength, gravitational redshift,
-    Schwarzschild radius, and full evolutionary timelines from stellar parameters.
+    Compute luminosity, Planck emission spectra, spectral class, bolometric magnitudes,
+    gravitational redshift, and evolutionary timelines — then place every star on a live
+    Hertzsprung–Russell diagram with physically accurate blackbody color.
   </p>
   <div class="hero-actions">
     <a href="#analyzer" class="btn btn-primary">▶ Launch Analyzer</a>
@@ -1049,6 +1129,28 @@ footer {
   </div>
 </section>
 
+<!-- ── H–R DIAGRAM ── -->
+<section id="hr" style="padding-top:0;">
+  <div class="section-header reveal">
+    <div class="section-tag">Population Module</div>
+    <h2 class="section-title">Hertzsprung–Russell Diagram</h2>
+  </div>
+  <div class="panel reveal reveal-d1">
+    <div class="panel-header">
+      <span class="panel-title">Luminosity vs Effective Temperature</span>
+      <span id="hr-count" style="font-family:var(--mono);font-size:0.58rem;color:var(--dim)">0 stars plotted</span>
+    </div>
+    <div class="chart-legend" id="hrLegend">
+      <div class="lg"><span class="swd" style="background:#ffd27d"></span>Registry stars (color = blackbody T<sub>eff</sub>)</div>
+      <div class="lg"><span class="sw" style="background:#566080;height:9px;width:9px;border-radius:50%"></span>Sun reference (G2V)</div>
+    </div>
+    <div class="chart-wrap" style="height:440px">
+      <canvas id="hrCanvas"></canvas>
+      <div class="chart-tooltip" id="hrTip"></div>
+    </div>
+  </div>
+</section>
+
 <!-- ── SORT ── -->
 <section id="sort" style="padding-top:0;">
   <div class="section-header reveal">
@@ -1065,13 +1167,17 @@ footer {
   <div class="panel reveal reveal-d2">
     <div class="panel-header">
       <span class="panel-title">Stellar Comparison Table</span>
-      <span id="table-count" style="font-family:var(--mono);font-size:0.58rem;color:var(--dim)">0 entries</span>
+      <span style="display:flex;align-items:center;gap:0.8rem;">
+        <a href="#" onclick="exportCSV();return false;" style="font-family:var(--mono);font-size:0.58rem;color:var(--cyan);text-decoration:none;letter-spacing:0.1em;">⭳ EXPORT CSV</a>
+        <span id="table-count" style="font-family:var(--mono);font-size:0.58rem;color:var(--dim)">0 entries</span>
+      </span>
     </div>
     <div class="table-scroll">
       <table class="star-table">
         <thead>
           <tr>
             <th>Name</th>
+            <th>Class</th>
             <th>Temp (K)</th>
             <th>Luminosity (W)</th>
             <th>Peak λ (nm)</th>
@@ -1084,7 +1190,7 @@ footer {
         </thead>
         <tbody id="star-tbody">
           <tr>
-            <td colspan="9" style="text-align:center;color:var(--muted);padding:2.5rem;font-size:0.7rem;">
+            <td colspan="10" style="text-align:center;color:var(--muted);padding:2.5rem;font-size:0.7rem;">
               No stars analyzed yet — add stars above
             </td>
           </tr>
@@ -1102,7 +1208,7 @@ footer {
       <h2 class="section-title" style="margin-bottom:1.2rem;">Physics Engine</h2>
       <p>A web interface for a C++ stellar physics engine. Computes real astrophysical quantities using Stefan–Boltzmann law, Wien's displacement law, and Schwarzschild general relativistic effects.</p>
       <p>The gravitational redshift factor √(1 − rₛ/R) determines photon escape conditions. Stellar evolution uses mass-luminosity relations to estimate lifetimes across three recursive stages.</p>
-      <p>Updated v2 includes the Fading Red Dwarf branch for sub-0.5 M☉ stars that never leave the main sequence, and a proper menu system.</p>
+      <p>Updated v3 adds Planck-law emission spectra, a live Hertzsprung–Russell diagram, Morgan–Keenan spectral classification, bolometric magnitudes, and physically accurate blackbody color — computed with CODATA 2018 / IAU 2015 nominal constants.</p>
       <div style="margin-top:1.2rem;display:flex;gap:0.75rem;flex-wrap:wrap;">
         <a href="#" class="btn btn-primary btn-sm" id="aboutGithub" target="_blank" rel="noopener">⬡ GitHub Repository</a>
         <a href="#analyzer" class="btn btn-ghost btn-sm">▶ Try Analyzer</a>
@@ -1148,8 +1254,8 @@ footer {
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔬</div>
-      <div class="feature-name">Wien's Law</div>
-      <div class="feature-desc">Peak wavelength λ = b/T maps each star's color from UV through infrared.</div>
+      <div class="feature-name">Planck Spectra</div>
+      <div class="feature-desc">Full B_λ(λ,T) spectral radiance curves with Wien peak, rendered over the true-color visible band.</div>
     </div>
     <div class="feature-card">
       <div class="feature-icon">📡</div>
@@ -1158,15 +1264,15 @@ footer {
     </div>
     <div class="feature-card">
       <div class="feature-icon">🔀</div>
-      <div class="feature-name">Sort & Compare</div>
-      <div class="feature-desc">Multi-star registry with real-time sorting by 5 astrophysical parameters.</div>
+      <div class="feature-name">H–R Diagram & Export</div>
+      <div class="feature-desc">Every star plotted live on a Hertzsprung–Russell diagram, with CSV export and a persistent registry.</div>
     </div>
   </div>
 </section>
 
 <!-- ── FOOTER ── -->
 <footer>
-  <div class="footer-logo">Stellar Observatory · v2.0</div>
+  <div class="footer-logo">Stellar Observatory · v3.0</div>
   <div class="footer-links">
     <a href="#analyzer">Analyzer</a>
     <a href="#sort">Compare</a>
@@ -1320,12 +1426,74 @@ function closeMobileNav() {
    PHYSICS — ported from C++ v2
 ════════════════════════════════════════ */
 const PI = Math.PI;
-const SIGMA = 5.67e-8;
-const B_WIEN = 2.898e-3;
-const C_LIGHT = 3e8;
-const G_N = 6.674e-11;
-const SOLAR_MASS = 1.989e30;
-const SOLAR_L = 3.828e26;
+const SIGMA    = 5.670374419e-8;    // Stefan–Boltzmann constant, W·m⁻²·K⁻⁴ (CODATA 2018, exact)
+const B_WIEN   = 2.897771955e-3;    // Wien displacement constant, m·K (CODATA 2018)
+const C_LIGHT  = 2.99792458e8;      // speed of light, m/s (exact)
+const G_N      = 6.67430e-11;       // Newtonian gravitational constant (CODATA 2018)
+const H_PLANCK = 6.62607015e-34;    // Planck constant, J·s (exact)
+const K_B      = 1.380649e-23;      // Boltzmann constant, J/K (exact)
+const SOLAR_MASS = 1.98892e30;      // kg
+const SOLAR_L  = 3.828e26;          // W (IAU 2015 nominal)
+const SOLAR_R  = 6.957e8;           // m (IAU 2015 nominal)
+const SOLAR_T  = 5772;              // K (IAU 2015 nominal effective temperature)
+const PARSEC   = 3.0856775814913673e16; // m
+const AU       = 1.495978707e11;    // m
+
+// Planck's law: spectral radiance B_λ(λ,T) in W·sr⁻¹·m⁻³
+function planck(lam, T) {
+  const x = H_PLANCK * C_LIGHT / (lam * K_B * T);
+  if (x > 700) return 0; // underflow guard
+  return (2 * H_PLANCK * C_LIGHT * C_LIGHT) / Math.pow(lam, 5) / Math.expm1(x);
+}
+
+// Morgan–Keenan spectral class from effective temperature
+function spectralClass(T) {
+  const bands = [
+    ['O', 30000, 60000], ['B', 10000, 30000], ['A', 7500, 10000],
+    ['F', 6000, 7500], ['G', 5200, 6000], ['K', 3700, 5200], ['M', 2400, 3700]
+  ];
+  if (T >= 60000) return 'O0';
+  if (T < 2400) return T >= 1300 ? 'L (brown dwarf)' : T >= 600 ? 'T (brown dwarf)' : 'Y (sub-stellar)';
+  for (const [cls, lo, hi] of bands) {
+    if (T >= lo && T < hi) {
+      const sub = Math.min(9, Math.max(0, Math.floor(((hi - T) / (hi - lo)) * 10)));
+      return cls + sub;
+    }
+  }
+  return '—';
+}
+
+// Blackbody chromaticity: effective temperature → display hex
+// (Tanner Helland / Neil Bartlett CIE-fit approximation, valid ~1000–40000 K)
+function kelvinToHex(T) {
+  const t = Math.max(1000, Math.min(40000, T)) / 100;
+  let r, g, b;
+  r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+  g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661
+              : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+  b = t >= 66 ? 255 : (t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307);
+  const cl = v => Math.max(0, Math.min(255, Math.round(v)));
+  return '#' + [r, g, b].map(v => cl(v).toString(16).padStart(2, '0')).join('');
+}
+
+// Visible wavelength (nm) → [r,g,b] (Bruton's algorithm with edge falloff)
+function waveRGB(w) {
+  let r = 0, g = 0, b = 0;
+  if      (w >= 380 && w < 440) { r = -(w - 440) / 60; b = 1; }
+  else if (w < 490)             { g = (w - 440) / 50;  b = 1; }
+  else if (w < 510)             { g = 1; b = -(w - 510) / 20; }
+  else if (w < 580)             { r = (w - 510) / 70;  g = 1; }
+  else if (w < 645)             { r = 1; g = -(w - 645) / 65; }
+  else if (w <= 780)            { r = 1; }
+  let f = 1;
+  if (w >= 380 && w < 420)      f = 0.3 + 0.7 * (w - 380) / 40;
+  else if (w > 700 && w <= 780) f = 0.3 + 0.7 * (780 - w) / 80;
+  const c = v => Math.round(255 * Math.pow(Math.max(v * f, 0), 0.8));
+  return [c(r), c(g), c(b)];
+}
+function rgbHex(r, g, b) {
+  return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
 
 function analyzeStar(s) {
   s.L = 4 * PI * s.R * s.R * SIGMA * Math.pow(s.T, 4);
@@ -1344,6 +1512,16 @@ function analyzeStar(s) {
       ? 'Photon escapes — redshifted'
       : 'Extreme redshift — barely escapes';
   }
+
+  // Derived observables (v3)
+  s.spec  = spectralClass(s.T);
+  s.bb    = kelvinToHex(s.T);
+  s.M_bol = 4.74 - 2.5 * Math.log10(s.L / SOLAR_L);          // IAU 2015 zero point
+  s.m_bol = s.M_bol + 5 * Math.log10(Math.max(s.d / PARSEC, 1e-12) / 10);
+  s.logg  = Math.log10((G_N * s.i_mass * SOLAR_MASS / (s.R * s.R)) * 100); // cgs, log₁₀(cm/s²)
+  s.v_esc = Math.sqrt(2 * G_N * s.i_mass * SOLAR_MASS / s.R); // m/s
+  s.hz_in  = 0.95 * Math.sqrt(s.L / SOLAR_L);  // AU — conservative habitable zone (Kasting/Kopparapu)
+  s.hz_out = 1.37 * Math.sqrt(s.L / SOLAR_L);
 }
 
 function classifier(w) {
@@ -1410,10 +1588,16 @@ function fmtAge(myr) {
 }
 
 function getColor(lambda) {
-  if (lambda < 4.5e-7) return { label: 'Blue/UV',       hex: '#7ab4ff' };
-  if (lambda < 5.5e-7) return { label: 'Yellow/Green',  hex: '#d4ff70' };
-  if (lambda < 7.0e-7) return { label: 'Orange/Red',    hex: '#ff8050' };
-  return                      { label: 'Infrared',       hex: '#ff3020' };
+  const nm = lambda * 1e9;
+  if (nm < 10)  return { label: 'X-ray',       hex: '#c9b8ff' };
+  if (nm < 380) return { label: 'Ultraviolet', hex: '#9a6bff' };
+  if (nm <= 750) {
+    const [r, g, b] = waveRGB(nm);
+    const label = nm < 450 ? 'Violet' : nm < 485 ? 'Blue' : nm < 500 ? 'Cyan'
+                : nm < 565 ? 'Green'  : nm < 590 ? 'Yellow' : nm < 625 ? 'Orange' : 'Red';
+    return { label, hex: rgbHex(r, g, b) };
+  }
+  return { label: 'Infrared', hex: '#ff5030' };
 }
 
 const REMNANT_COLORS = {
@@ -1426,9 +1610,11 @@ function rc(r) { return REMNANT_COLORS[r] || { b: 'var(--cyan)', t: 'var(--cyan)
 
 function fmtSci(n) {
   if (!isFinite(n) || n === 0) return '0';
-  const e = Math.floor(Math.log10(Math.abs(n)));
-  const m = (n / Math.pow(10, e)).toFixed(2);
-  return `${m}×10<sup>${e}</sup>`;
+  let e = Math.floor(Math.log10(Math.abs(n)));
+  let m = n / Math.pow(10, e);
+  if (Math.abs(m) >= 9.995) { m /= 10; e += 1; } // keep mantissa in [1, 10)
+  if (e === 0) return m.toFixed(2);
+  return `${m.toFixed(2)}×10<sup>${e}</sup>`;
 }
 
 /* ════════════════════════════════════════
@@ -1442,7 +1628,8 @@ function drawStarVisual(star) {
   canvas.width = w; canvas.height = h;
   ctx.clearRect(0, 0, w, h);
   const cx = w / 2, cy = h / 2;
-  const col = getColor(star.lambda);
+  // Render in true blackbody color so the star looks the way a camera would see it
+  const col = { hex: star.bb || getColor(star.lambda).hex };
 
   // Black hole
   if (star.R <= star.schw_R) {
@@ -1506,15 +1693,380 @@ function drawStarVisual(star) {
 }
 
 /* ════════════════════════════════════════
+   CHART ENGINE — shared helpers
+════════════════════════════════════════ */
+const GRID_COLOR = 'rgba(120,150,220,0.08)';
+const AXIS_TEXT  = '#566080';
+const SURFACE    = '#04060d';
+
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+
+function fmtWl(nm) {
+  if (nm >= 1e6) return (nm / 1e6) + ' mm';
+  if (nm >= 1000) return (nm / 1000) + ' µm';
+  if (nm >= 1) return nm + ' nm';
+  return nm.toPrecision(2) + ' nm';
+}
+
+/* ════════════════════════════════════════
+   PLANCK SPECTRUM CHART
+════════════════════════════════════════ */
+function drawSpectrum(star, hoverX) {
+  const canvas = document.getElementById('specCanvas');
+  if (!canvas || !canvas.offsetWidth) return;
+  const { ctx, w, h } = setupCanvas(canvas);
+  const pad = { l: 40, r: 18, t: 16, b: 34 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+
+  const peak = star.lambda;
+  const lamMin = Math.min(100e-9, peak / 8);
+  const lamMax = Math.max(1700e-9, peak * 9);
+  const logMin = Math.log10(lamMin), logMax = Math.log10(lamMax);
+  const lx = lam => pad.l + (Math.log10(lam) - logMin) / (logMax - logMin) * pw;
+  const xlam = x => Math.pow(10, logMin + (x - pad.l) / pw * (logMax - logMin));
+  const ly = v => pad.t + (1 - v) * ph;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Physically-colored visible band (380–750 nm)
+  for (let nm = 380; nm <= 750; nm += 2) {
+    const lam = nm * 1e-9;
+    if (lam < lamMin || lam > lamMax) continue;
+    const x0 = lx(lam), x1 = lx((nm + 2) * 1e-9);
+    const [r, g, b] = waveRGB(nm);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.13)`;
+    ctx.fillRect(x0, pad.t, Math.max(x1 - x0, 0.5), ph);
+  }
+
+  // Horizontal gridlines — solid hairlines
+  ctx.strokeStyle = GRID_COLOR;
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach(v => {
+    ctx.beginPath();
+    ctx.moveTo(pad.l, ly(v)); ctx.lineTo(pad.l + pw, ly(v));
+    ctx.stroke();
+  });
+
+  // X ticks at decades
+  ctx.font = '9px "Space Mono", monospace';
+  ctx.fillStyle = AXIS_TEXT;
+  ctx.textAlign = 'center';
+  for (let e = Math.ceil(logMin); e <= Math.floor(logMax); e++) {
+    const lam = Math.pow(10, e);
+    const x = lx(lam);
+    ctx.strokeStyle = GRID_COLOR;
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + ph); ctx.stroke();
+    ctx.fillText(fmtWl(lam * 1e9), x, h - 18);
+  }
+  ctx.fillText('wavelength λ (log scale)', pad.l + pw / 2, h - 5);
+
+  // Y axis label
+  ctx.save();
+  ctx.translate(11, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('Bλ / Bλ,max', 0, 0);
+  ctx.restore();
+
+  // Curves — each normalized to its own peak so both shapes stay readable
+  const N = 260;
+  const drawCurve = (T, color, width) => {
+    const bMax = planck(B_WIEN / T, T);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const lam = Math.pow(10, logMin + (i / N) * (logMax - logMin));
+      const v = planck(lam, T) / bMax;
+      const x = lx(lam), y = ly(Math.max(0, Math.min(1, v)));
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  };
+  drawCurve(SOLAR_T, '#566080', 1.5);        // Sun reference
+  drawCurve(star.T, star.bb || '#00d4e8', 2); // selected star
+
+  // Peak marker — dot with surface ring + direct label
+  const pxk = lx(peak), pyk = ly(1);
+  ctx.beginPath(); ctx.arc(pxk, pyk, 6, 0, PI * 2);
+  ctx.fillStyle = SURFACE; ctx.fill();
+  ctx.beginPath(); ctx.arc(pxk, pyk, 4, 0, PI * 2);
+  ctx.fillStyle = star.bb || '#00d4e8'; ctx.fill();
+  ctx.fillStyle = '#b8c8e8';
+  ctx.textAlign = pxk > pad.l + pw * 0.75 ? 'right' : 'left';
+  const lnm = peak * 1e9;
+  ctx.fillText(`λmax ${lnm >= 1 ? lnm.toFixed(1) : lnm.toPrecision(3)} nm`,
+    pxk + (pxk > pad.l + pw * 0.75 ? -10 : 10), pyk + 4);
+
+  // Hover crosshair
+  if (hoverX != null && hoverX >= pad.l && hoverX <= pad.l + pw) {
+    const lam = xlam(hoverX);
+    const bMax = planck(B_WIEN / star.T, star.T);
+    const v = planck(lam, star.T) / bMax;
+    ctx.strokeStyle = 'rgba(184,200,232,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hoverX, pad.t); ctx.lineTo(hoverX, pad.t + ph); ctx.stroke();
+    const hy = ly(Math.max(0, Math.min(1, v)));
+    ctx.beginPath(); ctx.arc(hoverX, hy, 5.5, 0, PI * 2);
+    ctx.fillStyle = SURFACE; ctx.fill();
+    ctx.beginPath(); ctx.arc(hoverX, hy, 3.5, 0, PI * 2);
+    ctx.fillStyle = star.bb || '#00d4e8'; ctx.fill();
+    return { lam, b: planck(lam, star.T), bSun: planck(lam, SOLAR_T), y: hy, pad, pw };
+  }
+  return null;
+}
+
+function wireSpectrumHover(star) {
+  const canvas = document.getElementById('specCanvas');
+  const tip = document.getElementById('specTip');
+  if (!canvas || !tip) return;
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const hit = drawSpectrum(star, x);
+    if (!hit) { tip.classList.remove('show'); return; }
+    const nm = hit.lam * 1e9;
+    tip.innerHTML =
+      `λ = ${nm >= 1 ? nm.toFixed(1) : nm.toPrecision(3)} nm<br>` +
+      `Bλ(${star.name.length > 14 ? star.name.slice(0, 13) + '…' : star.name}) = ${hit.b.toExponential(2)} W·sr⁻¹·m⁻³<br>` +
+      `Bλ(Sun) = ${hit.bSun.toExponential(2)} W·sr⁻¹·m⁻³`;
+    tip.classList.add('show');
+    const wrapW = canvas.offsetWidth;
+    tip.style.left = (x > wrapW - 210 ? x - tip.offsetWidth - 14 : x + 14) + 'px';
+    tip.style.top = Math.max(8, Math.min(hit.y - 20, canvas.offsetHeight - 70)) + 'px';
+  });
+  canvas.addEventListener('mouseleave', () => {
+    tip.classList.remove('show');
+    drawSpectrum(star);
+  });
+}
+
+/* ════════════════════════════════════════
+   HERTZSPRUNG–RUSSELL DIAGRAM
+════════════════════════════════════════ */
+const HR_T_MIN = 2200, HR_T_MAX = 48000;
+const HR_L_MIN = -6, HR_L_MAX = 7;
+let hrPoints = [];
+
+function drawHR(highlightIdx = -1) {
+  const canvas = document.getElementById('hrCanvas');
+  if (!canvas || !canvas.offsetWidth) return;
+  const { ctx, w, h } = setupCanvas(canvas);
+  const pad = { l: 52, r: 20, t: 30, b: 40 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  const logTMin = Math.log10(HR_T_MIN), logTMax = Math.log10(HR_T_MAX);
+  // Temperature decreases to the right — astronomy convention
+  const tx = T => pad.l + (logTMax - Math.log10(Math.max(Math.min(T, HR_T_MAX), HR_T_MIN))) / (logTMax - logTMin) * pw;
+  const lyv = logL => pad.t + (HR_L_MAX - Math.max(Math.min(logL, HR_L_MAX), HR_L_MIN)) / (HR_L_MAX - HR_L_MIN) * ph;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = '9px "Space Mono", monospace';
+
+  // Spectral class bands along the top
+  const clsBounds = [
+    ['O', HR_T_MAX, 30000], ['B', 30000, 10000], ['A', 10000, 7500],
+    ['F', 7500, 6000], ['G', 6000, 5200], ['K', 5200, 3700], ['M', 3700, HR_T_MIN]
+  ];
+  clsBounds.forEach(([cls, hi, lo], i) => {
+    const x0 = tx(hi), x1 = tx(lo);
+    if (i > 0) {
+      ctx.strokeStyle = GRID_COLOR;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x0, pad.t); ctx.lineTo(x0, pad.t + ph); ctx.stroke();
+    }
+    ctx.fillStyle = kelvinToHex((hi + lo) / 2) + '99';
+    ctx.textAlign = 'center';
+    ctx.fillText(cls, (x0 + x1) / 2, pad.t - 8);
+  });
+
+  // Horizontal gridlines every 2 decades of luminosity
+  ctx.textAlign = 'right';
+  for (let e = HR_L_MIN; e <= HR_L_MAX; e += 2) {
+    const y = lyv(e);
+    ctx.strokeStyle = GRID_COLOR;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + pw, y); ctx.stroke();
+    ctx.fillStyle = AXIS_TEXT;
+    if (e === 0) {
+      ctx.fillText('1', pad.l - 8, y + 3);
+    } else {
+      // "10" with a hand-placed raised exponent — superscript glyphs are unreliable at 9px
+      ctx.font = '7px "Space Mono", monospace';
+      ctx.fillText(String(e), pad.l - 8, y - 1);
+      const ew = ctx.measureText(String(e)).width;
+      ctx.font = '9px "Space Mono", monospace';
+      ctx.fillText('10', pad.l - 9 - ew, y + 3);
+    }
+  }
+
+  // X ticks
+  ctx.textAlign = 'center';
+  [40000, 20000, 10000, 5000, 3000].forEach(T => {
+    ctx.fillStyle = AXIS_TEXT;
+    ctx.fillText(T.toLocaleString(), tx(T), pad.t + ph + 16);
+  });
+  ctx.fillText('effective temperature (K) — decreasing →', pad.l + pw / 2, h - 6);
+  ctx.save();
+  ctx.translate(12, pad.t + ph / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText('luminosity (L☉)', 0, 0);
+  ctx.restore();
+
+  // Main-sequence band: L/L☉ ≈ (T/T☉)^6.7, spread ~±1.2 dex
+  ctx.beginPath();
+  const msLogL = T => 6.7 * Math.log10(T / SOLAR_T);
+  let first = true;
+  for (let T = HR_T_MAX; T >= HR_T_MIN; T *= 0.97) {
+    const x = tx(T), y = lyv(msLogL(T) + 1.2);
+    first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    first = false;
+  }
+  for (let T = HR_T_MIN; T <= HR_T_MAX; T *= 1.03) {
+    ctx.lineTo(tx(T), lyv(msLogL(T) - 1.2));
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,212,232,0.045)';
+  ctx.fill();
+
+  // Region labels
+  ctx.fillStyle = 'rgba(86,96,128,0.75)';
+  ctx.textAlign = 'center';
+  ctx.save();
+  ctx.translate(tx(9000), lyv(msLogL(9000)));
+  ctx.rotate(Math.atan2(lyv(msLogL(5000)) - lyv(msLogL(16000)), tx(5000) - tx(16000)));
+  ctx.fillText('M A I N   S E Q U E N C E', 0, -8);
+  ctx.restore();
+  ctx.fillText('G I A N T S', tx(4200), lyv(2.6));
+  ctx.fillText('S U P E R G I A N T S', tx(9500), lyv(5.4));
+  ctx.fillText('W H I T E   D W A R F S', tx(14000), lyv(-3.2));
+
+  // Sun reference
+  const sx = tx(SOLAR_T), sy = lyv(0);
+  ctx.strokeStyle = 'rgba(184,200,232,0.5)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(sx - 7, sy); ctx.lineTo(sx + 7, sy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx, sy - 7); ctx.lineTo(sx, sy + 7); ctx.stroke();
+  ctx.fillStyle = AXIS_TEXT;
+  ctx.textAlign = 'left';
+  ctx.fillText('Sun', sx + 10, sy + 3);
+
+  // Registry stars
+  hrPoints = registry.map((s, i) => ({
+    x: tx(s.T), y: lyv(Math.log10(s.L / SOLAR_L)), s, i
+  }));
+  hrPoints.forEach(p => {
+    const r = p.i === highlightIdx ? 8 : 6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r + 2, 0, PI * 2);
+    ctx.fillStyle = SURFACE; ctx.fill();          // 2px surface ring
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, PI * 2);
+    ctx.fillStyle = p.s.bb; ctx.fill();
+    if (p.i === highlightIdx) {
+      ctx.strokeStyle = 'rgba(238,242,255,0.7)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r + 4, 0, PI * 2); ctx.stroke();
+    }
+  });
+  // Direct name labels while the registry is small
+  if (registry.length <= 14) {
+    ctx.fillStyle = '#b8c8e8';
+    hrPoints.forEach(p => {
+      const flip = p.x > pad.l + pw - 90;
+      ctx.textAlign = flip ? 'right' : 'left';
+      ctx.fillText(p.s.name, p.x + (flip ? -11 : 11), p.y + 3);
+    });
+  }
+
+  const el = document.getElementById('hr-count');
+  if (el) el.textContent = registry.length + ' star' + (registry.length !== 1 ? 's' : '') + ' plotted';
+}
+
+function wireHRHover() {
+  const canvas = document.getElementById('hrCanvas');
+  const tip = document.getElementById('hrTip');
+  if (!canvas || !tip) return;
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let best = null, bestD = 26; // generous hit radius
+    hrPoints.forEach(p => {
+      const d = Math.hypot(p.x - mx, p.y - my);
+      if (d < bestD) { bestD = d; best = p; }
+    });
+    if (!best) {
+      tip.classList.remove('show');
+      canvas.style.cursor = 'default';
+      drawHR();
+      return;
+    }
+    canvas.style.cursor = 'pointer';
+    drawHR(best.i);
+    const s = best.s;
+    tip.innerHTML =
+      `<span style="color:#eef2ff;font-weight:700">${s.name}</span> · ${s.spec}<br>` +
+      `T = ${s.T.toLocaleString()} K<br>` +
+      `L = ${(s.L / SOLAR_L).toExponential(2)} L☉<br>` +
+      `Fate: ${s.r_type}`;
+    tip.classList.add('show');
+    tip.style.left = (best.x > canvas.offsetWidth - 200 ? best.x - tip.offsetWidth - 16 : best.x + 16) + 'px';
+    tip.style.top = Math.max(8, best.y - 30) + 'px';
+  });
+  canvas.addEventListener('mouseleave', () => {
+    tip.classList.remove('show');
+    drawHR();
+  });
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const p = hrPoints.find(p => Math.hypot(p.x - mx, p.y - my) < 26);
+    if (p) {
+      selectStar(p.i);
+      document.getElementById('analyzer').scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+}
+
+/* ════════════════════════════════════════
    RENDER RESULTS
 ════════════════════════════════════════ */
+// EM spectrum bar: log scale, 1 nm → 1 mm (X-ray → UV → visible → IR)
+const EM_LOG_MIN = 0, EM_LOG_MAX = 6; // log10(nm)
+function emPct(nm) {
+  const p = (Math.log10(Math.max(nm, 1)) - EM_LOG_MIN) / (EM_LOG_MAX - EM_LOG_MIN) * 100;
+  return Math.max(0.5, Math.min(99.5, p));
+}
+function emGradient() {
+  const stops = [
+    `#141028 0%`, `#241448 ${emPct(10)}%`,          // X-ray → UV edge
+    `#40108a ${emPct(100)}%`, `#7b00d4 ${emPct(379)}%`  // UV ramp
+  ];
+  for (let nm = 380; nm <= 750; nm += 20) {
+    const [r, g, b] = waveRGB(nm);
+    stops.push(`${rgbHex(r, g, b)} ${emPct(nm)}%`);
+  }
+  stops.push(`#7a1408 ${emPct(760)}%`, `#38100a ${emPct(30000)}%`, `#0c0505 100%`);
+  return `linear-gradient(to right, ${stops.join(',')})`;
+}
+
+function fmtKms(ms) {
+  const kms = ms / 1000;
+  return kms >= 1e4 ? fmtSci(kms) : kms.toFixed(1);
+}
+
 function renderResults(star) {
   const col = getColor(star.lambda);
   const rCol = rc(star.r_type);
   const detected = star.P > 1e-8;
   const lamNm = star.lambda * 1e9;
-  const wlPct = Math.max(0, Math.min(100, ((lamNm - 380) / (750 - 380)) * 100));
+  const wlPct = emPct(lamNm);
   const evoStages = buildEvoStages(star);
+  const msLife = msLifetime(star);
 
   const html = `
     <div class="panel">
@@ -1536,12 +2088,22 @@ function renderResults(star) {
         <div class="data-cell-value">${fmtSci(star.L)}<span class="data-cell-unit">W</span></div>
       </div>
       <div class="data-cell">
+        <div class="data-cell-label">Solar Luminosities</div>
+        <div class="data-cell-value">${fmtSci(star.L / SOLAR_L)}<span class="data-cell-unit">L☉</span></div>
+      </div>
+      <div class="data-cell">
         <div class="data-cell-label">Temperature</div>
         <div class="data-cell-value">${star.T.toLocaleString()}<span class="data-cell-unit">K</span></div>
       </div>
       <div class="data-cell">
+        <div class="data-cell-label">Spectral Class</div>
+        <div class="data-cell-value" style="display:flex;align-items:center;gap:0.45rem;">
+          <span style="width:9px;height:9px;border-radius:50%;background:${star.bb};box-shadow:0 0 6px ${star.bb};flex-shrink:0;"></span>${star.spec}
+        </div>
+      </div>
+      <div class="data-cell">
         <div class="data-cell-label">Peak Wavelength</div>
-        <div class="data-cell-value">${lamNm.toFixed(1)}<span class="data-cell-unit">nm</span></div>
+        <div class="data-cell-value">${lamNm >= 1 ? lamNm.toFixed(1) : lamNm.toPrecision(3)}<span class="data-cell-unit">nm</span></div>
       </div>
       <div class="data-cell">
         <div class="data-cell-label">Radiation Flux</div>
@@ -1562,6 +2124,46 @@ function renderResults(star) {
       <div class="data-cell">
         <div class="data-cell-label">Observed Temp</div>
         <div class="data-cell-value">${star.redshift_T.toFixed(1)}<span class="data-cell-unit">K</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Abs. Bol. Magnitude</div>
+        <div class="data-cell-value">${star.M_bol.toFixed(2)}<span class="data-cell-unit">M<sub>bol</sub></span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">App. Bol. Magnitude</div>
+        <div class="data-cell-value">${star.m_bol.toFixed(2)}<span class="data-cell-unit">m<sub>bol</sub></span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Surface Gravity</div>
+        <div class="data-cell-value">${star.logg.toFixed(2)}<span class="data-cell-unit">log g (cgs)</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Escape Velocity</div>
+        <div class="data-cell-value">${fmtKms(star.v_esc)}<span class="data-cell-unit">km/s</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">Habitable Zone</div>
+        <div class="data-cell-value">${star.hz_in.toPrecision(3)}–${star.hz_out.toPrecision(3)}<span class="data-cell-unit">AU</span></div>
+      </div>
+      <div class="data-cell">
+        <div class="data-cell-label">MS Lifetime</div>
+        <div class="data-cell-value">${fmtAge(msLife)}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Planck Emission Spectrum — B<sub>λ</sub>(λ, T)</span>
+        <div class="panel-dots"><span></span><span></span><span></span></div>
+      </div>
+      <div class="chart-legend">
+        <div class="lg"><span class="sw" style="background:${star.bb}"></span>${star.name} · ${star.T.toLocaleString()} K</div>
+        <div class="lg"><span class="sw" style="background:#566080"></span>Sun reference · ${SOLAR_T.toLocaleString()} K</div>
+        <div class="lg" style="color:var(--muted)">curves normalized to own peak · hover for absolute B<sub>λ</sub></div>
+      </div>
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="specCanvas"></canvas>
+        <div class="chart-tooltip" id="specTip"></div>
       </div>
     </div>
 
@@ -1586,11 +2188,16 @@ function renderResults(star) {
           </div>
         </div>
         <div>
-          <div style="font-family:var(--mono);font-size:0.55rem;color:var(--dim);margin-bottom:0.35rem;letter-spacing:0.1em;text-transform:uppercase;">
-            Peak λ on electromagnetic spectrum
+          <div style="font-family:var(--mono);font-size:0.55rem;color:var(--dim);margin-bottom:0.45rem;letter-spacing:0.1em;text-transform:uppercase;">
+            Peak λ on electromagnetic spectrum — ${lamNm >= 1 ? lamNm.toFixed(1) : lamNm.toPrecision(3)} nm (log scale, 1 nm → 1 mm)
           </div>
-          <div class="wl-bar"><div class="wl-marker" style="left:${wlPct}%"></div></div>
-          <div class="wl-labels"><span>380nm UV</span><span>550nm VIS</span><span>750nm IR</span></div>
+          <div class="em-bar" style="background:${emGradient()}"><div class="em-marker" style="left:${wlPct}%"></div></div>
+          <div class="em-bands">
+            <span style="width:${emPct(10)}%">X-ray</span>
+            <span style="width:${emPct(380) - emPct(10)}%">Ultraviolet</span>
+            <span style="width:${emPct(750) - emPct(380)}%;text-align:center;">Vis</span>
+            <span style="flex:1;text-align:right;">Infrared</span>
+          </div>
         </div>
       </div>
     </div>
@@ -1617,7 +2224,11 @@ function renderResults(star) {
   `;
 
   document.getElementById('results-area').innerHTML = html;
-  requestAnimationFrame(() => drawStarVisual(star));
+  requestAnimationFrame(() => {
+    drawStarVisual(star);
+    drawSpectrum(star);
+    wireSpectrumHover(star);
+  });
 }
 
 /* ════════════════════════════════════════
@@ -1641,10 +2252,17 @@ function addStar() {
   analyzeStar(star);
   classifier(star);
   registry.push(star);
-  refreshList(); refreshTable();
+  refreshAll();
   selectStar(registry.length - 1);
   ['inp-name','inp-radius','inp-temp','inp-dist','inp-mass'].forEach(id => document.getElementById(id).value = '');
   toast(`✦ ${name} added to registry`);
+}
+
+function refreshAll() {
+  refreshList();
+  refreshTable();
+  drawHR();
+  saveRegistry();
 }
 
 function selectStar(i) {
@@ -1676,7 +2294,7 @@ function refreshTable() {
   const tbody = document.getElementById('star-tbody');
   document.getElementById('table-count').textContent = registry.length + ' entr' + (registry.length === 1 ? 'y' : 'ies');
   if (!registry.length) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:2.5rem;font-size:0.7rem;">No stars analyzed yet</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:2.5rem;font-size:0.7rem;">No stars analyzed yet</td></tr>`;
     return;
   }
   const sorted = [...registry].sort((a, b) =>
@@ -1688,6 +2306,7 @@ function refreshTable() {
     const origIdx = registry.indexOf(s);
     return `<tr onclick="selectStar(${origIdx});document.getElementById('analyzer').scrollIntoView({behavior:'smooth'})">
       <td class="td-name">${s.name}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:0.4rem;"><span style="width:8px;height:8px;border-radius:50%;background:${s.bb};flex-shrink:0;"></span>${s.spec}</span></td>
       <td>${s.T.toLocaleString()}</td>
       <td>${s.L.toExponential(2)}</td>
       <td>${(s.lambda*1e9).toFixed(1)}</td>
@@ -1709,7 +2328,7 @@ function sortStars(key, btn) {
 
 function clearAll() {
   registry = []; selectedIdx = -1;
-  refreshList(); refreshTable();
+  refreshAll();
   document.getElementById('results-area').innerHTML = `
     <div class="panel empty-state" style="min-height:280px;">
       <div class="empty-icon">⊙</div>
@@ -1719,22 +2338,71 @@ function clearAll() {
   toast('Registry cleared');
 }
 
+// Catalogue values: radii/temps from published estimates (IAU nominal units)
+const PRESETS = [
+  { name: 'Sun',              R: 6.957e8,  T: 5772,  d: 1.496e11, i_mass: 1.0   },
+  { name: 'Proxima Centauri', R: 1.07e8,   T: 3042,  d: 4.02e16,  i_mass: 0.122 },
+  { name: 'Sirius A',         R: 1.19e9,   T: 9940,  d: 8.15e16,  i_mass: 2.06  },
+  { name: 'Vega',             R: 1.64e9,   T: 9602,  d: 2.37e17,  i_mass: 2.14  },
+  { name: 'Rigel',            R: 5.49e10,  T: 12100, d: 8.02e18,  i_mass: 21    },
+  { name: 'Betelgeuse',       R: 5.31e11,  T: 3600,  d: 5.18e18,  i_mass: 18    },
+  { name: 'UY Scuti',         R: 1.19e12,  T: 3365,  d: 4.8e19,   i_mass: 10    },
+  { name: 'Neutron Star X',   R: 1.2e4,    T: 1e6,   d: 3e19,     i_mass: 25    },
+];
+
 function loadPresets() {
-  const presets = [
-    { name: 'Sun',             R: 6.96e8,  T: 5778,  d: 1.496e11, i_mass: 1.0  },
-    { name: 'Betelgeuse',      R: 8.87e11, T: 3500,  d: 1.92e19,  i_mass: 18   },
-    { name: 'Sirius A',        R: 1.19e9,  T: 9940,  d: 8.13e16,  i_mass: 2.1  },
-    { name: 'Proxima Centauri',R: 1.07e8,  T: 3042,  d: 3.97e16,  i_mass: 0.122},
-    { name: 'Neutron Star X',  R: 1.2e4,   T: 1e6,   d: 3e19,     i_mass: 15   },
-  ];
-  presets.forEach(p => {
+  PRESETS.forEach(p => {
     const star = { ...p };
     analyzeStar(star); classifier(star);
     registry.push(star);
   });
-  refreshList(); refreshTable();
+  refreshAll();
   selectStar(0);
-  toast('✦ 5 preset stars loaded');
+  toast(`✦ ${PRESETS.length} catalogue stars loaded`);
+}
+
+/* ════════════════════════════════════════
+   PERSISTENCE & EXPORT
+════════════════════════════════════════ */
+const LS_KEY = 'stellar-observatory-v3';
+
+function saveRegistry() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(
+      registry.map(({ name, R, T, d, i_mass }) => ({ name, R, T, d, i_mass }))
+    ));
+  } catch (e) { /* private mode / quota — persistence is best-effort */ }
+}
+
+function loadRegistry() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+    raw.forEach(p => {
+      if (!(p.R > 0 && p.T > 0 && p.d > 0 && p.i_mass > 0)) return;
+      const s = { name: String(p.name || 'Unknown Star'), R: p.R, T: p.T, d: p.d, i_mass: p.i_mass };
+      analyzeStar(s); classifier(s);
+      registry.push(s);
+    });
+  } catch (e) { /* corrupt state — start fresh */ }
+}
+
+function exportCSV() {
+  if (!registry.length) { toast('⚠ Nothing to export — analyze stars first'); return; }
+  const cols = ['name','spec','T_K','R_m','distance_m','initial_mass_Msun','luminosity_W','peak_lambda_m',
+                'flux_W_m2','rad_pressure_Pa','schwarzschild_R_m','redshift_factor','observed_T_K',
+                'M_bol','m_bol','log_g_cgs','v_esc_m_s','hz_inner_AU','hz_outer_AU','remnant'];
+  const rows = registry.map(s => [
+    `"${s.name.replace(/"/g, '""')}"`, s.spec, s.T, s.R, s.d, s.i_mass, s.L, s.lambda,
+    s.F, s.P, s.schw_R, s.redshift_F, s.redshift_T,
+    s.M_bol, s.m_bol, s.logg, s.v_esc, s.hz_in, s.hz_out, `"${s.r_type}"`
+  ].join(','));
+  const blob = new Blob([[cols.join(','), ...rows].join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stellar-observatory-catalogue.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('⭳ Catalogue exported as CSV');
 }
 
 /* ════════════════════════════════════════
@@ -1756,6 +2424,30 @@ const revealObs = new IntersectionObserver(entries => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+/* ════════════════════════════════════════
+   BOOT
+════════════════════════════════════════ */
+wireHRHover();
+loadRegistry();
+if (registry.length) {
+  refreshList();
+  refreshTable();
+  selectStar(0);
+}
+requestAnimationFrame(() => drawHR());
+
+let chartResizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(chartResizeTimer);
+  chartResizeTimer = setTimeout(() => {
+    drawHR();
+    if (selectedIdx >= 0 && registry[selectedIdx]) {
+      drawStarVisual(registry[selectedIdx]);
+      drawSpectrum(registry[selectedIdx]);
+    }
+  }, 150);
+});
 </script>
 </body>
 </html>
